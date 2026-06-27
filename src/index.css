@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surfaces */
+  --background: 228 33% 96%;
+  --foreground: 222 45% 14%;
+  --card: 0 0% 100%;
+  --muted: 220 30% 94%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 32% 91%;
+
+  /* Brand */
+  --primary: 232 57% 37%;
+  --primary-dark: 233 60% 29%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 172 66% 50%;
+  --accent-foreground: 222 47% 12%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle ambient gradient behind the app, matching the screenshots */
+.app-bg {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 184, 0.08), transparent 60%),
+    hsl(var(--background));
+}
+
+/* Brand gradient for the logo tile + submit button */
+.brand-gradient {
+  background: linear-gradient(135deg, #3b46b5 0%, #283593 55%, #1e2a78 100%);
+}
+.submit-gradient {
+  background: linear-gradient(135deg, #8689da 0%, #6f73c9 100%);
+}
+.submit-gradient-active {
+  background: linear-gradient(135deg, #4f56c4 0%, #3b46b5 100%);
+}
+.auth-panel-gradient {
+  background: linear-gradient(155deg, #2c3a96 0%, #283593 45%, #1f2a7a 100%);
+}
+
+/* Textarea / inputs reset */
+textarea,
+input {
+  font-family: inherit;
+}
+textarea:focus,
+input:focus {
+  outline: none;
+}
+
+::placeholder {
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+
+/* Thin scrollbar to match a clean app shell */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
