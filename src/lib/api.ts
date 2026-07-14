@@ -1,4 +1,4 @@
-import type { AdminCluster, Complaint, NotificationItem } from "./types";
+import type { AdminCluster, Complaint, NotificationItem, Reporter } from "./types";
 
 export interface User {
   id: number;
@@ -58,14 +58,35 @@ export const api = {
   myComplaints: () => request<{ complaints: Complaint[] }>("/complaints/mine"),
 
   // admin
-  adminComplaints: () => request<{ clusters: AdminCluster[] }>("/admin/complaints"),
-  setStatus: (code: string, status: string) =>
+  adminComplaints: (limit = 100, offset = 0) =>
+    request<{ clusters: AdminCluster[]; total: number; limit: number; offset: number }>(
+      `/admin/complaints?limit=${limit}&offset=${offset}`
+    ),
+  setStatus: (code: string, status: string, reason?: string) =>
     request<{ complaint: AdminCluster }>(`/complaints/${code}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(reason ? { status, reason } : { status }),
+    }),
+  reporters: (code: string) =>
+    request<{ reporters: Reporter[] }>(`/admin/complaints/${code}/reporters`),
+  detachReporter: (code: string, userId: number) =>
+    request<{ cluster: AdminCluster; detached: AdminCluster }>(
+      `/admin/complaints/${code}/detach/${userId}`,
+      { method: "POST" }
+    ),
+  correctClassification: (
+    code: string,
+    fields: Partial<Pick<AdminCluster, "category" | "severity" | "block" | "floor">>
+  ) =>
+    request<{ complaint: AdminCluster }>(`/admin/complaints/${code}/classification`, {
+      method: "PATCH",
+      body: JSON.stringify(fields),
     }),
 
   // notifications
-  notifications: () => request<{ notifications: NotificationItem[] }>("/notifications"),
+  notifications: (limit = 20, offset = 0) =>
+    request<{ notifications: NotificationItem[]; total: number }>(
+      `/notifications?limit=${limit}&offset=${offset}`
+    ),
   markAllRead: () => request<{ ok: boolean }>("/notifications/read-all", { method: "POST" }),
 };

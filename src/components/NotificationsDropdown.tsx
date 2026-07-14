@@ -7,6 +7,7 @@ import { relativeTime, cn } from "@/lib/utils";
 export default function NotificationsDropdown() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [total, setTotal] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
   const unread = items.filter((n) => n.unread).length;
@@ -14,9 +15,22 @@ export default function NotificationsDropdown() {
   useEffect(() => {
     api
       .notifications()
-      .then(({ notifications }) => setItems(notifications))
+      .then(({ notifications, total }) => {
+        setItems(notifications);
+        setTotal(total);
+      })
       .catch(() => setItems([]));
   }, []);
+
+  async function loadMore() {
+    try {
+      const { notifications, total } = await api.notifications(20, items.length);
+      setItems((prev) => [...prev, ...notifications]);
+      setTotal(total);
+    } catch {
+      /* keep what we have */
+    }
+  }
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -84,6 +98,16 @@ export default function NotificationsDropdown() {
                   </div>
                 </li>
               ))}
+              {items.length < total && (
+                <li className="px-3 py-2">
+                  <button
+                    onClick={loadMore}
+                    className="w-full rounded-lg border border-border py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    Load more ({items.length} of {total})
+                  </button>
+                </li>
+              )}
             </ul>
           )}
         </div>

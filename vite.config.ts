@@ -10,6 +10,12 @@ export default defineConfig({
     },
   },
   server: {
+    // Required so the Google Sign-In popup can return the credential to the
+    // opener page (GIS requirement). Without this the popup is severed and
+    // sign-in reports "Failed to open popup / blocked by the browser".
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    },
     proxy: {
       "/api": {
         target: "http://localhost:4000",

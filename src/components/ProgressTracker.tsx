@@ -8,6 +8,7 @@ const STAGE_BG: Record<Status, string> = {
   "in-progress": "bg-blue-500",
   waiting: "bg-amber-500",
   done: "bg-green-500",
+  rejected: "bg-red-500", // rejected is rendered as a banner, not a tracker step
 };
 
 const STAGE_RING: Record<Status, string> = {
@@ -15,6 +16,7 @@ const STAGE_RING: Record<Status, string> = {
   "in-progress": "ring-blue-500/20",
   waiting: "ring-amber-500/25",
   done: "ring-green-500/20",
+  rejected: "ring-red-500/20",
 };
 
 export default function ProgressTracker({ status }: { status: Status }) {

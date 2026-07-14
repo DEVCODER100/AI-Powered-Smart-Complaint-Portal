@@ -28,16 +28,20 @@ PORT=4000
 
 ## 3. Create tables + seed demo data
 
+Set the seed admin account in `server/.env` first (required — there are no
+hardcoded defaults):
+
+```
+SEED_ADMIN_EMAIL=you@example.com
+SEED_ADMIN_PASSWORD=choose-a-strong-password
+```
+
 ```bash
 npm run db:setup      # runs migrate then seed
 ```
 
-Seeded accounts:
-
-| Role    | Email                | Password   |
-| ------- | -------------------- | ---------- |
-| Student | aisha.k@campus.edu   | hostel123  |
-| Admin   | admin@campus.edu     | admin123   |
+This seeds one admin (from the env vars above) and a demo student
+(`aisha.k@campus.edu`, password configurable via `SEED_STUDENT_PASSWORD`).
 
 ## 4. Run (frontend + backend together)
 

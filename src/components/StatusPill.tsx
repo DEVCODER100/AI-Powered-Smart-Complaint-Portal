@@ -7,6 +7,7 @@ const DOT: Record<Status, string> = {
   "in-progress": "bg-blue-500",
   waiting: "bg-amber-500",
   done: "bg-green-500",
+  rejected: "bg-red-500",
 };
 
 const TEXT: Record<Status, string> = {
@@ -14,6 +15,7 @@ const TEXT: Record<Status, string> = {
   "in-progress": "text-blue-600",
   waiting: "text-amber-600",
   done: "text-green-600",
+  rejected: "text-red-600",
 };
 
 export default function StatusPill({ status }: { status: Status }) {

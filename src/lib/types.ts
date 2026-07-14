@@ -2,9 +2,10 @@ export type Category = "plumbing" | "wifi" | "electrical" | "cleaning" | "other"
 
 export type Severity = "critical" | "high" | "normal";
 
-/** Pipeline stages, in order. */
-export type Status = "pending" | "in-progress" | "waiting" | "done";
+/** Pipeline stages plus the admin-only terminal state "rejected". */
+export type Status = "pending" | "in-progress" | "waiting" | "done" | "rejected";
 
+/** The four pipeline steps shown in the progress tracker (rejected is separate). */
 export const STATUS_ORDER: Status[] = ["pending", "in-progress", "waiting", "done"];
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -12,6 +13,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   "in-progress": "In Progress",
   waiting: "Waiting",
   done: "Done",
+  rejected: "Rejected",
 };
 
 export interface Complaint {
@@ -21,6 +23,8 @@ export interface Complaint {
   floor: string; // e.g. "Floor 2" | "All Floors"
   severity: Severity;
   status: Status;
+  /** Short AI-generated summary; falls back to description when absent. */
+  title: string | null;
   description: string;
   reportedAgoMinutes: number;
   othersReported: number; // de-duplicated cluster count, excluding the viewer
@@ -39,4 +43,15 @@ export interface AdminCluster extends Complaint {
   department: string;
   slaTargetHours: number; // response target for the severity
   ageHours: number; // how long the cluster has been open
+  aiFlagged: boolean; // AI was uncertain → needs admin review
+  possibleDuplicateOf: string | null; // code of a near-duplicate complaint
+  statusNote: string | null; // reason recorded on reject/reopen
+}
+
+/** A reporter attached to a cluster (admin unmerge view). */
+export interface Reporter {
+  userId: number;
+  name: string;
+  rawText: string | null;
+  agoMinutes: number;
 }

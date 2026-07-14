@@ -10,6 +10,9 @@
     "migrate": "node server/migrate.js",
     "seed": "node server/seed.js",
     "db:setup": "node server/migrate.js && node server/seed.js",
+    "start": "node server/index.js",
+    "test": "vitest run",
+    "eval": "node server/eval/run.js",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
@@ -19,14 +22,17 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "express-rate-limit": "^8.5.2",
     "google-auth-library": "^10.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.460.0",
     "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "tailwind-merge": "^2.5.4"
+    "tailwind-merge": "^2.5.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
@@ -35,8 +41,10 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
     "postcss": "^8.4.49",
+    "supertest": "^7.2.2",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^4.1.10"
   }
 }

@@ -23,10 +23,27 @@ export default function ComplaintCard({ complaint }: { complaint: Complaint }) {
         <SeverityBadge severity={complaint.severity} />
       </div>
 
-      {/* description */}
-      <p className="mt-4 text-[15px] leading-relaxed text-foreground/90">
-        {complaint.description}
-      </p>
+      {/* AI title with the original report expandable underneath */}
+      {complaint.title ? (
+        <div className="mt-4">
+          <p className="text-[15px] font-semibold leading-relaxed text-foreground">
+            {complaint.title}
+          </p>
+          <details className="mt-1 group">
+            <summary className="cursor-pointer list-none text-sm font-medium text-muted-foreground hover:text-foreground">
+              <span className="group-open:hidden">Show original report</span>
+              <span className="hidden group-open:inline">Hide original report</span>
+            </summary>
+            <p className="mt-1.5 rounded-xl bg-muted/50 px-3.5 py-2.5 text-[14px] leading-relaxed text-foreground/80">
+              {complaint.description}
+            </p>
+          </details>
+        </div>
+      ) : (
+        <p className="mt-4 text-[15px] leading-relaxed text-foreground/90">
+          {complaint.description}
+        </p>
+      )}
 
       {/* status + cluster count */}
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -39,7 +56,14 @@ export default function ComplaintCard({ complaint }: { complaint: Complaint }) {
 
       <hr className="my-5 border-border/70" />
 
-      <ProgressTracker status={complaint.status} />
+      {complaint.status === "rejected" ? (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          This complaint was reviewed and rejected. If the problem persists, you can report it
+          again with more detail.
+        </p>
+      ) : (
+        <ProgressTracker status={complaint.status} />
+      )}
     </article>
   );
 }
