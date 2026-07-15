@@ -49,6 +49,14 @@ export const classificationSchema = z
     message: "Provide at least one field to correct",
   });
 
+export const assignSchema = z.object({
+  workerId: z.coerce.number().int().positive(),
+  // ISO datetime strings from the admin form; stored as timestamptz.
+  etaStart: z.string().min(1, "Pick an arrival start time").max(40),
+  etaEnd: z.string().min(1, "Pick an arrival end time").max(40),
+  note: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
 /** Express middleware factory: validate req.body against a schema. */
 export function validate(schema) {
   return (req, res, next) => {

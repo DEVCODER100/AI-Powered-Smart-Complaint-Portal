@@ -1,4 +1,4 @@
-import type { AdminCluster, Complaint, NotificationItem, Reporter } from "./types";
+import type { AdminCluster, Complaint, NotificationItem, Reporter, Worker } from "./types";
 
 export interface User {
   id: number;
@@ -81,6 +81,18 @@ export const api = {
     request<{ complaint: AdminCluster }>(`/admin/complaints/${code}/classification`, {
       method: "PATCH",
       body: JSON.stringify(fields),
+    }),
+
+  // worker assignment (F10)
+  workers: (department: string) =>
+    request<{ workers: Worker[] }>(`/admin/workers?department=${encodeURIComponent(department)}`),
+  assignWorker: (
+    code: string,
+    body: { workerId: number; etaStart: string; etaEnd: string; note?: string }
+  ) =>
+    request<{ complaint: AdminCluster }>(`/admin/complaints/${code}/assign`, {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
 
   // notifications

@@ -1,6 +1,6 @@
-import { Users } from "lucide-react";
+import { Users, Wrench, Phone, Clock } from "lucide-react";
 import type { Complaint } from "@/lib/types";
-import { relativeTime } from "@/lib/utils";
+import { relativeTime, formatEtaWindow } from "@/lib/utils";
 import CategoryIcon, { CATEGORY_LABEL } from "./CategoryIcon";
 import SeverityBadge from "./SeverityBadge";
 import StatusPill from "./StatusPill";
@@ -53,6 +53,41 @@ export default function ComplaintCard({ complaint }: { complaint: Complaint }) {
           {complaint.othersReported} others reported this
         </span>
       </div>
+
+      {/* assigned worker (F10) — who is coming + ETA + tappable phone */}
+      {complaint.assignment && complaint.status !== "rejected" && (
+        <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Wrench className="h-5 w-5" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Assigned · help is on the way
+              </p>
+              <p className="mt-0.5 font-semibold text-foreground">
+                {complaint.assignment.workerName}
+                <span className="font-normal text-muted-foreground"> · {complaint.assignment.workerRole}</span>
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+                {formatEtaWindow(complaint.assignment.etaStart, complaint.assignment.etaEnd) && (
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-4 w-4" strokeWidth={2.2} />
+                    {formatEtaWindow(complaint.assignment.etaStart, complaint.assignment.etaEnd)}
+                  </span>
+                )}
+                <a
+                  href={`tel:${complaint.assignment.workerPhone.replace(/\s+/g, "")}`}
+                  className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+                >
+                  <Phone className="h-4 w-4" strokeWidth={2.2} />
+                  {complaint.assignment.workerPhone}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <hr className="my-5 border-border/70" />
 

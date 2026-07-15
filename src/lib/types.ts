@@ -16,6 +16,25 @@ export const STATUS_LABEL: Record<Status, string> = {
   rejected: "Rejected",
 };
 
+/** A worker (plumber, electrician, …) available to be assigned. */
+export interface Worker {
+  id: number;
+  name: string;
+  phone: string;
+  role: string;
+  department: string;
+  isAvailable: boolean;
+}
+
+/** The worker currently assigned to a complaint, shown to reporters. */
+export interface Assignment {
+  workerName: string;
+  workerRole: string;
+  workerPhone: string;
+  etaStart: string | null; // ISO
+  etaEnd: string | null; // ISO
+}
+
 export interface Complaint {
   id: string; // e.g. "C-017"
   category: Category;
@@ -28,6 +47,7 @@ export interface Complaint {
   description: string;
   reportedAgoMinutes: number;
   othersReported: number; // de-duplicated cluster count, excluding the viewer
+  assignment?: Assignment | null; // F10 — who is coming + ETA
 }
 
 export interface NotificationItem {

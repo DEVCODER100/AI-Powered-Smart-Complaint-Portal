@@ -30,6 +30,7 @@ import {
   complaintSchema,
   statusSchema,
   classificationSchema,
+  assignSchema,
   STATUSES,
 } from "./validate.js";
 
@@ -101,8 +102,27 @@ function toComplaint(row) {
     description: row.raw_text,
     reportedAgoMinutes: minsAgo(row.created_at),
     othersReported: Math.max(0, Number(row.reporter_count) - 1),
+    // Latest worker assignment, when the query joined it in (F10).
+    assignment: row.worker_name
+      ? {
+          workerName: row.worker_name,
+          workerRole: row.worker_role,
+          workerPhone: row.worker_phone,
+          etaStart: row.eta_start || null,
+          etaEnd: row.eta_end || null,
+        }
+      : null,
   };
 }
+
+// LATERAL join that attaches each complaint's most recent assignment + worker.
+const LATEST_ASSIGNMENT_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT a.eta_start, a.eta_end, w.name AS worker_name, w.role AS worker_role, w.phone AS worker_phone
+    FROM assignments a JOIN workers w ON w.id = a.worker_id
+    WHERE a.complaint_id = c.id
+    ORDER BY a.assigned_at DESC LIMIT 1
+  ) asn ON true`;
 
 function toAdminCluster(row) {
   return {
@@ -336,9 +356,11 @@ app.get("/api/complaints/mine", authRequired, async (req, res) => {
   try {
     const { rows } = await query(
       `SELECT c.*,
+              asn.worker_name, asn.worker_role, asn.worker_phone, asn.eta_start, asn.eta_end,
               (SELECT count(*) FROM complaint_reporters r2 WHERE r2.complaint_id = c.id) AS reporter_count
        FROM complaints c
        JOIN complaint_reporters r ON r.complaint_id = c.id
+       ${LATEST_ASSIGNMENT_JOIN}
        WHERE r.user_id = $1
        ORDER BY c.created_at DESC`,
       [req.user.id]
@@ -360,9 +382,11 @@ app.get("/api/admin/complaints", authRequired, adminOnly, async (req, res) => {
     const totalRes = await query("SELECT count(*)::int AS n FROM complaints");
     const { rows } = await query(
       `SELECT c.*, d.code AS possible_duplicate_code,
+              asn.worker_name, asn.worker_role, asn.worker_phone, asn.eta_start, asn.eta_end,
               (SELECT count(*) FROM complaint_reporters r WHERE r.complaint_id = c.id) AS reporter_count
        FROM complaints c
        LEFT JOIN complaints d ON d.id = c.possible_duplicate_of
+       ${LATEST_ASSIGNMENT_JOIN}
        ORDER BY CASE c.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,
                 reporter_count DESC,
                 c.created_at DESC
@@ -539,6 +563,103 @@ app.patch(
 
       const n = await reporterCount(pool, c.id);
       res.json({ complaint: toAdminCluster({ ...upd.rows[0], reporter_count: n }) });
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      res.status(500).json({ error: String(e.message || e) });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// ---------- worker assignment (F10) ----------
+
+// Roster for the assign picker; optionally filtered by department.
+app.get("/api/admin/workers", authRequired, adminOnly, async (req, res) => {
+  const dept = req.query.department;
+  try {
+    const { rows } = dept
+      ? await query(
+          `SELECT id, name, phone, role, department, is_available FROM workers
+           WHERE department = $1 ORDER BY is_available DESC, name`,
+          [dept]
+        )
+      : await query(
+          `SELECT id, name, phone, role, department, is_available FROM workers
+           ORDER BY department, name`
+        );
+    res.json({
+      workers: rows.map((w) => ({
+        id: w.id,
+        name: w.name,
+        phone: w.phone,
+        role: w.role,
+        department: w.department,
+        isAvailable: w.is_available,
+      })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// Assign a worker + ETA window. One transaction: assignment row → status
+// in_progress → notify every reporter in the cluster. Supports reassignment
+// (a newer assignment row simply supersedes the previous one).
+app.post(
+  "/api/admin/complaints/:code/assign",
+  authRequired,
+  adminOnly,
+  validate(assignSchema),
+  async (req, res) => {
+    const { workerId, etaStart, etaEnd, note } = req.body;
+    const client = await pool.connect();
+    try {
+      const compRes = await client.query("SELECT * FROM complaints WHERE code = $1", [
+        req.params.code,
+      ]);
+      const c = compRes.rows[0];
+      if (!c) return res.status(404).json({ error: "Complaint not found" });
+
+      const wRes = await client.query("SELECT * FROM workers WHERE id = $1", [workerId]);
+      const worker = wRes.rows[0];
+      if (!worker) return res.status(404).json({ error: "Worker not found" });
+
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO assignments (complaint_id, worker_id, assigned_by, eta_start, eta_end, note)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [c.id, workerId, req.user.id, etaStart, etaEnd, note || null]
+      );
+      // Assigning a worker moves the complaint into progress.
+      const upd = await client.query(
+        `UPDATE complaints SET status = 'in-progress', updated_at = now() WHERE id = $1 RETURNING *`,
+        [c.id]
+      );
+      const updated = upd.rows[0];
+
+      await client.query(
+        `INSERT INTO notifications (user_id, complaint_id, title, body)
+         SELECT user_id, $1, $2, $3 FROM complaint_reporters WHERE complaint_id = $1`,
+        [
+          c.id,
+          `Help is on the way for ${c.code} 🛠️`,
+          `${worker.name} (${worker.role}) has been assigned to your ${c.category} complaint (${c.code}). See the complaint for their arrival time and contact number.`,
+        ]
+      );
+      await client.query("COMMIT");
+
+      const n = await reporterCount(pool, c.id);
+      const shaped = toAdminCluster({
+        ...updated,
+        reporter_count: n,
+        worker_name: worker.name,
+        worker_role: worker.role,
+        worker_phone: worker.phone,
+        eta_start: etaStart,
+        eta_end: etaEnd,
+      });
+      res.json({ complaint: shaped });
     } catch (e) {
       await client.query("ROLLBACK").catch(() => {});
       res.status(500).json({ error: String(e.message || e) });
