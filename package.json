@@ -10,6 +10,7 @@
     "migrate": "node server/migrate.js",
     "seed": "node server/seed.js",
     "seed:samples": "node server/seed-samples.js",
+    "make-admin": "node server/make-admin.js",
     "db:setup": "node server/migrate.js && node server/seed.js",
     "start": "node server/index.js",
     "test": "vitest run",
