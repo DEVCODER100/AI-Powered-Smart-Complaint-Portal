@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import TopNav from "@/components/TopNav";
 import Toast from "@/components/Toast";
+import MediaUpload from "@/components/MediaUpload";
 import { api } from "@/lib/api";
+import { PHYSICAL_CATEGORIES, uploadToCloudinary, type SelectedMedia } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 export default function Intake() {
@@ -12,6 +14,8 @@ export default function Intake() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [media, setMedia] = useState<SelectedMedia | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
 
   const hasText = text.trim().length > 0;
 
@@ -20,7 +24,23 @@ export default function Intake() {
     setSubmitting(true);
     setError(null);
     try {
-      const { message } = await api.createComplaint(text.trim());
+      const { complaint, message } = await api.createComplaint(text.trim());
+
+      // Attach media only for physical categories (the server enforces this too).
+      // Media is always optional — an upload failure never blocks the complaint.
+      if (media && PHYSICAL_CATEGORIES.has(complaint.category)) {
+        try {
+          setProgress(0);
+          const sig = await api.mediaSignature();
+          const up = await uploadToCloudinary(media, sig, setProgress);
+          await api.attachMedia(complaint.id, { publicId: up.publicId, resourceType: media.type });
+        } catch {
+          /* keep going — the complaint is already logged */
+        } finally {
+          setProgress(null);
+        }
+      }
+
       setToast(message);
       setTimeout(() => navigate("/complaints"), 1900);
     } catch (err) {
@@ -71,6 +91,14 @@ export default function Intake() {
               {submitting ? "Understanding..." : "Understand & submit"}
             </button>
           </div>
+
+          <MediaUpload
+            value={media}
+            onChange={setMedia}
+            progress={progress}
+            disabled={submitting}
+          />
+
           {error && (
             <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
               {error}

@@ -57,6 +57,18 @@ export const api = {
     }),
   myComplaints: () => request<{ complaints: Complaint[] }>("/complaints/mine"),
 
+  // media upload (F15)
+  mediaSignature: () =>
+    request<{ cloudName: string; apiKey: string; folder: string; timestamp: number; signature: string }>(
+      "/complaints/media/signature",
+      { method: "POST" }
+    ),
+  attachMedia: (code: string, body: { publicId: string; resourceType: "image" | "video" }) =>
+    request<{ complaint: Complaint }>(`/complaints/${code}/media`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
   // admin
   adminComplaints: (limit = 100, offset = 0) =>
     request<{ clusters: AdminCluster[]; total: number; limit: number; offset: number }>(

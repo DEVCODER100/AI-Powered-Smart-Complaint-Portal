@@ -45,6 +45,25 @@ export default function ComplaintCard({ complaint }: { complaint: Complaint }) {
         </p>
       )}
 
+      {/* attached photo / video (F15) */}
+      {complaint.mediaUrl && complaint.mediaType === "image" && (
+        <a href={complaint.mediaUrl} target="_blank" rel="noreferrer" className="mt-4 block w-fit">
+          <img
+            src={complaint.mediaUrl}
+            alt="complaint attachment"
+            className="h-28 w-28 rounded-xl border border-border object-cover shadow-sm transition-transform hover:scale-[1.02]"
+          />
+        </a>
+      )}
+      {complaint.mediaUrl && complaint.mediaType === "video" && (
+        <video
+          src={complaint.mediaUrl}
+          controls
+          playsInline
+          className="mt-4 h-40 w-fit max-w-full rounded-xl border border-border object-cover shadow-sm"
+        />
+      )}
+
       {/* status + cluster count */}
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
         <StatusPill status={complaint.status} />

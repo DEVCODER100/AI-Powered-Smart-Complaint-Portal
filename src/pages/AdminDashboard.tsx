@@ -360,6 +360,24 @@ function ClusterRow({
             )}
           </div>
 
+          {cluster.mediaUrl && cluster.mediaType === "image" && (
+            <a href={cluster.mediaUrl} target="_blank" rel="noreferrer" className="mt-3 block w-fit">
+              <img
+                src={cluster.mediaUrl}
+                alt="complaint attachment"
+                className="max-h-64 rounded-xl border border-border object-contain shadow-sm"
+              />
+            </a>
+          )}
+          {cluster.mediaUrl && cluster.mediaType === "video" && (
+            <video
+              src={cluster.mediaUrl}
+              controls
+              playsInline
+              className="mt-3 max-h-64 w-fit max-w-full rounded-xl border border-border shadow-sm"
+            />
+          )}
+
           {reporters && (
             <div className="mt-3 rounded-2xl border border-border/70 bg-muted/30 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

@@ -48,6 +48,8 @@ export interface Complaint {
   reportedAgoMinutes: number;
   othersReported: number; // de-duplicated cluster count, excluding the viewer
   assignment?: Assignment | null; // F10 — who is coming + ETA
+  mediaUrl?: string | null; // F15 — optional photo/video (Cloudinary URL)
+  mediaType?: "image" | "video" | null;
 }
 
 export interface NotificationItem {
