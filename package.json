@@ -9,6 +9,7 @@
     "dev:all": "concurrently -n web,api -c blue,green \"npm run dev\" \"npm run server\"",
     "migrate": "node server/migrate.js",
     "seed": "node server/seed.js",
+    "seed:samples": "node server/seed-samples.js",
     "db:setup": "node server/migrate.js && node server/seed.js",
     "start": "node server/index.js",
     "test": "vitest run",

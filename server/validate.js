@@ -57,6 +57,13 @@ export const assignSchema = z.object({
   note: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
+// Client uploads directly to Cloudinary, then sends only the public_id +
+// resource type; the server verifies the real file via the Cloudinary API.
+export const mediaAttachSchema = z.object({
+  publicId: z.string().trim().min(1, "Missing upload id").max(300),
+  resourceType: z.enum(["image", "video"], { message: "Invalid media type" }),
+});
+
 /** Express middleware factory: validate req.body against a schema. */
 export function validate(schema) {
   return (req, res, next) => {

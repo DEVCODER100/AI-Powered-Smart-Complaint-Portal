@@ -31,6 +31,7 @@ import {
   statusSchema,
   classificationSchema,
   assignSchema,
+  mediaAttachSchema,
   STATUSES,
 } from "./validate.js";
 
@@ -38,6 +39,35 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// ---------- media (Cloudinary) config ----------
+const CLOUDINARY = {
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  apiKey: process.env.CLOUDINARY_API_KEY,
+  apiSecret: process.env.CLOUDINARY_API_SECRET,
+  folder: "complaints",
+};
+const cloudinaryReady = () =>
+  Boolean(CLOUDINARY.cloudName && CLOUDINARY.apiKey && CLOUDINARY.apiSecret);
+
+// Media is only meaningful for something a worker can physically see/photograph.
+const PHYSICAL_CATEGORIES = new Set(["plumbing", "electrical", "cleaning"]);
+
+// Server-side caps (enforced against real metadata fetched from Cloudinary).
+const MEDIA_LIMITS = {
+  image: { maxBytes: 2 * 1024 * 1024, formats: ["jpg", "jpeg", "png", "webp"] },
+  video: { maxBytes: 25 * 1024 * 1024, maxDurationSec: 15, formats: ["mp4", "webm", "mov"] },
+};
+
+async function fetchWithTimeout(url, options, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const app = express();
 
@@ -102,6 +132,8 @@ function toComplaint(row) {
     description: row.raw_text,
     reportedAgoMinutes: minsAgo(row.created_at),
     othersReported: Math.max(0, Number(row.reporter_count) - 1),
+    mediaUrl: row.media_url || null,
+    mediaType: row.media_type || null,
     // Latest worker assignment, when the query joined it in (F10).
     assignment: row.worker_name
       ? {
@@ -347,6 +379,97 @@ app.post(
       res.status(500).json({ error: String(e.message || e) });
     } finally {
       client.release();
+    }
+  }
+);
+
+// ---------- media upload (optional, one photo OR one short video) ----------
+
+// Issue a short-lived signed signature so the client can upload the file
+// DIRECTLY to Cloudinary (the file never passes through our server / Postgres).
+app.post("/api/complaints/media/signature", authRequired, (req, res) => {
+  if (!cloudinaryReady()) {
+    return res.status(503).json({ error: "Media upload is not configured on the server" });
+  }
+  const timestamp = Math.floor(Date.now() / 1000);
+  // Cloudinary signs the alphabetically-sorted params the client will send.
+  const toSign = `folder=${CLOUDINARY.folder}&timestamp=${timestamp}`;
+  const signature = crypto.createHash("sha1").update(toSign + CLOUDINARY.apiSecret).digest("hex");
+  res.json({
+    cloudName: CLOUDINARY.cloudName,
+    apiKey: CLOUDINARY.apiKey,
+    folder: CLOUDINARY.folder,
+    timestamp,
+    signature,
+  });
+});
+
+// Attach an uploaded file to a complaint. The client sends only the Cloudinary
+// public_id; the server fetches the AUTHORITATIVE metadata from Cloudinary and
+// validates format / size / duration + physical-category + one-media-per-complaint
+// before storing the secure URL. Nothing client-supplied is trusted.
+app.patch(
+  "/api/complaints/:code/media",
+  authRequired,
+  validate(mediaAttachSchema),
+  async (req, res) => {
+    if (!cloudinaryReady()) {
+      return res.status(503).json({ error: "Media upload is not configured on the server" });
+    }
+    const { publicId, resourceType } = req.body;
+    try {
+      const compRes = await query("SELECT * FROM complaints WHERE code = $1", [req.params.code]);
+      const c = compRes.rows[0];
+      if (!c) return res.status(404).json({ error: "Complaint not found" });
+      if (c.owner_id !== req.user.id) {
+        return res.status(403).json({ error: "Only the reporter can attach media to this complaint" });
+      }
+      if (!PHYSICAL_CATEGORIES.has(c.category)) {
+        return res.status(400).json({
+          error: "Media can only be added to physical complaints (plumbing, electrical, cleaning).",
+        });
+      }
+      if (c.media_url) {
+        return res.status(409).json({ error: "This complaint already has one media item." });
+      }
+
+      // Ask Cloudinary for the real file details (Basic auth = api_key:api_secret).
+      const auth = Buffer.from(`${CLOUDINARY.apiKey}:${CLOUDINARY.apiSecret}`).toString("base64");
+      const idPath = String(publicId).split("/").map(encodeURIComponent).join("/");
+      const metaUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY.cloudName}/resources/${resourceType}/upload/${idPath}`;
+      const metaRes = await fetchWithTimeout(metaUrl, { headers: { Authorization: `Basic ${auth}` } }, 8000);
+      if (!metaRes.ok) {
+        return res.status(400).json({ error: "Could not verify the uploaded file" });
+      }
+      const meta = await metaRes.json();
+
+      // Enforce the same folder we signed, so only our uploads can be attached.
+      if (meta.folder && meta.folder !== CLOUDINARY.folder) {
+        return res.status(400).json({ error: "Unexpected upload location" });
+      }
+
+      const limits = MEDIA_LIMITS[resourceType];
+      const format = String(meta.format || "").toLowerCase();
+      if (!limits.formats.includes(format)) {
+        return res.status(400).json({ error: `Unsupported ${resourceType} format (.${format})` });
+      }
+      if (Number(meta.bytes) > limits.maxBytes) {
+        const mb = Math.round(limits.maxBytes / (1024 * 1024));
+        return res.status(400).json({ error: `File too large (max ${mb} MB)` });
+      }
+      if (resourceType === "video" && Number(meta.duration) > limits.maxDurationSec + 1) {
+        return res.status(400).json({ error: "Video must be 15 seconds or less." });
+      }
+
+      const upd = await query(
+        `UPDATE complaints SET media_url = $1, media_type = $2, updated_at = now()
+         WHERE id = $3 RETURNING *`,
+        [meta.secure_url, resourceType, c.id]
+      );
+      const n = await reporterCount(pool, c.id);
+      res.json({ complaint: toComplaint({ ...upd.rows[0], reporter_count: n }) });
+    } catch (e) {
+      res.status(500).json({ error: String(e.message || e) });
     }
   }
 );
