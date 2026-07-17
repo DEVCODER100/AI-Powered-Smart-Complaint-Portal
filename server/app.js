@@ -20,7 +20,7 @@ import {
   signToken,
   publicUser,
 } from "./auth.js";
-import { SLA_TARGET_HOURS, DEPARTMENTS } from "./classify.js";
+import { SLA_TARGET_HOURS, DEPARTMENTS, looksLikeComplaint } from "./classify.js";
 import { classifyText, embedText, toVectorParam } from "./ai.js";
 import {
   validate,
@@ -281,10 +281,29 @@ app.post(
   async (req, res) => {
     const text = req.body.text;
 
+    // Gibberish gate #1 — cheap heuristic (works with or without the AI):
+    // rejects keyboard mashing / random strings before anything is stored.
+    if (!looksLikeComplaint(text)) {
+      return res.status(400).json({
+        error:
+          "That doesn't look like a complaint. Please describe the actual problem — what's wrong and where (e.g. \"No water in Block C second floor\").",
+      });
+    }
+
     const client = await pool.connect();
     try {
       // Both calls degrade gracefully; neither can fail the request.
       const meta = await classifyText(text);
+
+      // Gibberish gate #2 — when Gemini is configured it also judges whether
+      // this is a genuine complaint (catches spam/tests that read like words).
+      if (meta.isComplaint === false) {
+        return res.status(400).json({
+          error:
+            "That doesn't look like a complaint. Please describe the actual problem — what's wrong and where (e.g. \"No water in Block C second floor\").",
+        });
+      }
+
       const embedding = await embedText(text);
       const vec = toVectorParam(embedding);
 

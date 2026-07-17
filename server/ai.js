@@ -25,6 +25,9 @@ Given a resident's free-text message, extract:
   "normal" otherwise.
 - title: a short human-readable English summary of the issue, 60 characters or less
 - confidence: your self-assessed confidence (0 to 1) that category AND severity are correct
+- isComplaint: true if the message describes a genuine hostel/campus maintenance or facility
+  problem; false if it is gibberish, random characters, keyboard mashing, a test, spam, an
+  empty greeting, or otherwise not an actual complaint
 Respond with JSON only.`;
 
 const SCHEMA = {
@@ -36,8 +39,9 @@ const SCHEMA = {
     severity: { type: "string", enum: ["critical", "high", "normal"] },
     title: { type: "string" },
     confidence: { type: "number" },
+    isComplaint: { type: "boolean" },
   },
-  required: ["category", "block", "floor", "severity", "title", "confidence"],
+  required: ["category", "block", "floor", "severity", "title", "confidence", "isComplaint"],
 };
 
 const CATEGORIES = ["plumbing", "wifi", "electrical", "cleaning", "other"];
@@ -102,6 +106,7 @@ export async function classifyWithGemini(text, key) {
     aiFlagged: confidence < CONFIDENCE_FLAG_THRESHOLD,
     title: String(p.title || "").slice(0, 60) || null,
     confidence,
+    isComplaint: p.isComplaint !== false, // reject only when the model is sure it's not
     source: "gemini",
   };
 }

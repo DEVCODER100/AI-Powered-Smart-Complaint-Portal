@@ -61,6 +61,49 @@ const HIGH_WORDS = [
   "bilkul band", "kaam nahi kar",
 ];
 
+// A handful of common short words so single-word real complaints pass.
+const KNOWN_WORDS = new Set([
+  "no","not","is","in","the","on","at","of","to","and","my","a","an","it",
+  "water","wifi","internet","net","light","lights","fan","power","current","socket","switch",
+  "leak","leaking","leakage","tap","toilet","flush","pipe","drain","geyser","basin","bathroom",
+  "clean","cleaning","dirty","garbage","trash","smell","dustbin","pest","cockroach","mosquito",
+  "broken","working","dead","slow","dropping","signal","router","spark","sparking","fire","smoke","shock",
+  "door","window","bed","fault","issue","problem","help","room","block","floor","wing","hostel",
+  // romanized Hindi/Gujarati
+  "paani","pani","bijli","batti","pankha","safai","gandagi","band","nahi","kaam","aa","raha",
+]);
+
+// Does this word look like a real word rather than keyboard mashing?
+function isPlausibleWord(w) {
+  if (!w) return false;
+  if (KNOWN_WORDS.has(w)) return true;
+  if (w.length <= 1) return w === "a" || w === "i";
+  if (/^(.)\1+$/.test(w)) return false; // "aaaa", "gggg"
+  const maxConsonantRun = Math.max(...w.split(/[aeiou]+/).map((r) => r.length), 0);
+  if (maxConsonantRun >= 4) return false; // "gbdtd", "sdfgh"
+  const vowels = (w.match(/[aeiou]/g) || []).length;
+  if (vowels === 0 && w.length >= 3) return false; // "zxc", "hjkl"
+  return true;
+}
+
+/**
+ * Reject obvious gibberish / non-complaints (keyboard mashing, random strings,
+ * symbols only) BEFORE a complaint is created. Deliberately conservative — it
+ * accepts anything that reads like language so real complaints are never
+ * blocked. Gemini (when configured) adds a smarter semantic check on top.
+ */
+export function looksLikeComplaint(text) {
+  const t = String(text || "").toLowerCase().trim();
+  const letters = t.replace(/[^a-z]/g, "");
+  if (letters.length < 4) return false; // too short / symbols only
+  const words = t.split(/\s+/).map((w) => w.replace(/[^a-z']/g, "")).filter(Boolean);
+  const plausible = words.filter(isPlausibleWord);
+  if (plausible.length === 0) return false; // every "word" is gibberish
+  // A single unknown token must itself look like a real word.
+  if (words.length === 1) return plausible.length === 1;
+  return true;
+}
+
 /** Short human-readable title from raw text (fallback when Gemini is off). */
 export function makeTitle(text) {
   const clean = String(text || "").replace(/\s+/g, " ").trim();
