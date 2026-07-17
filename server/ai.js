@@ -7,8 +7,8 @@
 
 import { classify, DEPARTMENTS } from "./classify.js";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-const EMBED_MODEL = process.env.GEMINI_EMBED_MODEL || "text-embedding-004";
+const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const EMBED_MODEL = process.env.GEMINI_EMBED_MODEL || "gemini-embedding-001";
 export const EMBED_DIMS = 768;
 export const CONFIDENCE_FLAG_THRESHOLD = 0.7;
 
@@ -137,7 +137,10 @@ export async function embedText(text) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: { parts: [{ text: String(text).slice(0, 2000) }] } }),
+        body: JSON.stringify({
+          content: { parts: [{ text: String(text).slice(0, 2000) }] },
+          outputDimensionality: EMBED_DIMS, // match the vector(768) column
+        }),
       },
       6000
     );
